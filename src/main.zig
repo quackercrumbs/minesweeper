@@ -14,7 +14,7 @@ const Op = enum {
 const State = enum {
     closed,
     open,
-    // TODO: add remaining states (flagged?)
+    flagged,
 };
 
 const Cell = struct {
@@ -97,6 +97,8 @@ const Game = struct {
                 // TODO: clean up this printing
                 if (cell.is_mine and self.result == GameResult.lost) {
                     std.debug.print("{u:3}", .{'X'});
+                } else if (cell.state == State.flagged) {
+                    std.debug.print("{u:3}", .{'F'});
                 } else if (cell.state == State.open and cell.neighoring_mines > 0) {
                     std.debug.print("{d:3}", .{
                         cell.neighoring_mines,
@@ -161,8 +163,8 @@ const Game = struct {
 
         const target_index = coordinate_to_index(self.x_size, self.y_size, target);
         var cell = &self.board.items[target_index];
-        if (cell.state == State.open) {
-            // Nothing to do, cell is already open
+        if (cell.state != State.closed) {
+            // Nothing we can do. Cell has to be in a closed state.
             return;
         }
 
@@ -205,7 +207,7 @@ const Game = struct {
             const cell_index = cell_queue.pop();
             if (!(visited_cells.contains(cell_index))) {
                 var cell = &self.board.items[cell_index];
-                if (cell.is_mine != true and cell.neighoring_mines == 0) {
+                if (cell.is_mine != true and cell.neighoring_mines == 0 and cell.state == State.closed) {
                     self.openCell(cell);
                     try visited_cells.put(cell_index, true);
 
@@ -216,6 +218,22 @@ const Game = struct {
                     }
                 }
             }
+        }
+    }
+
+    pub fn flag(self: *Game, target: CoordinatePair) void {
+        if (self.result != GameResult.undetermined) {
+            // reached end state already
+            return;
+        }
+
+        const target_index = coordinate_to_index(self.x_size, self.y_size, target);
+        var cell = &self.board.items[target_index];
+
+        if (cell.state == State.flagged) {
+            cell.state = State.closed;
+        } else if (cell.state == State.closed) {
+            cell.state = State.flagged;
         }
     }
 };
@@ -345,7 +363,7 @@ pub fn main() !void {
     defer arena.deinit();
     const allocator = arena.allocator();
 
-    var game = try Game.init_easy(allocator, 1, 3, 3, 8);
+    var game = try Game.init_easy(allocator, 1, 3, 3, 1);
     defer game.deinit();
 
     const stdout_file = std.io.getStdOut().writer();
@@ -360,6 +378,7 @@ pub fn main() !void {
     game.debug_print_neighboring_mine_counts();
 
     // open one box
+    game.flag(CoordinatePair{ .x = 2, .y = 0 });
     try game.open(CoordinatePair{ .x = 2, .y = 1 });
     game.debug_print();
     game.debug_print_mines();
