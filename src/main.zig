@@ -171,14 +171,18 @@ const Game = struct {
         if (cell.is_mine) {
             // Game is a lost.
             self.openCell(cell);
-            self.result = GameResult.lost;
+            self.setResult(GameResult.lost);
             return;
         } else {
             try revealCells(self, target_index);
             if (self.remaining_cells == 0) {
-                self.result = GameResult.win;
+                self.setResult(GameResult.win);
             }
         }
+    }
+
+    fn setResult(self: *Game, result: GameResult) void {
+        self.result = result;
     }
 
     fn openCell(self: *Game, cell: *Cell) void {
